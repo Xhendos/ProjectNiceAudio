@@ -14,18 +14,21 @@
 #pragma config BOR4V = BOR40V   // Brown-out Reset Selection bit (Brown-out Reset set to 4.0V)
 #pragma config WRT = OFF        // Flash Program Memory Self Write Enable bits (Write protection off)
 
-
 #include <xc.h>                             
 #include "HCMS29.h"                             /* Library for the HCMS-29xx dot matrix display */
-                                            
+
+#define _XTAL_FREQ  4000000
+
 void main(void)
 {
     OSCCONbits.IRCF         = 0b110;            /* Set the internal clock speed to 4 MHz */
+    OSCCONbits.OSTS         = 0;
+    OSCCONbits.SCS          = 0;
     
-    TRISC                   = 0;                /* Identify all C-pins as output */
+    TRISC                   = 0;                /* Identify all C-pins as output (used for display1) */
     PORTC                   = 0;                /* Set all C-pins to logical LOW */
     
-    TRISD                   = 0;                /* Identify all D-pins as output */
+    TRISD                   = 0;                /* Identify all D-pins as output (used for display2) */
     PORTD                   = 0;                /* Set all D-pins to logical LOW */
     
                                                 /* NOTE: Since we do not have input from the display, this is unnecessary */
@@ -40,36 +43,48 @@ void main(void)
     
     struct matric_29 display1;                  /* Declare the identifier 'display1' to the compiler */                         
     struct matric_29 display2;                  /* Declare the identifier 'display2' to the compiler */
-    
-    HCMS29struct_s(&display1.BL, &PORTC, 0x06); /* PORTCbits.DS6 is connected to the blank pin of the dot matrix */
-    HCMS29struct_s(&display1.RST, &PORTC, 0x02);/* PORTCbits.DS2 is connected to the reset pin of the dot matrix */
-    HCMS29struct_s(&display1.CE, &PORTC, 0x04); /* PORTCbits.DS4 is connected to the chip enable pin of the dot matrix */
-    HCMS29struct_s(&display1.RS, &PORTC, 0x07); /* PORTCbits.DS7 is connected to the register select pin of the dot matrix */
+        
+    HCMS29struct_s(&display2.BL, &PORTC, 0x06); /* PORTCbits.DS6 is connected to the blank pin of the dot matrix */
+    HCMS29struct_s(&display2.RST, &PORTC, 0x02);/* PORTCbits.DS2 is connected to the reset pin of the dot matrix */
+    HCMS29struct_s(&display2.CE, &PORTC, 0x04); /* PORTCbits.DS4 is connected to the chip enable pin of the dot matrix */
+    HCMS29struct_s(&display2.RS, &PORTC, 0x07); /* PORTCbits.DS7 is connected to the register select pin of the dot matrix */
 
-    HCMS29struct_s(&display2.BL, &PORTD, 0x06); /* PORTDbits.DS6 is connected to the blank pin of the dot matrix */
-    HCMS29struct_s(&display2.RST, &PORTD, 0x02);/* PORTDbits.DS6 is connected to the blank pin of the dot matrix */
-    HCMS29struct_s(&display2.CE, &PORTD, 0x04); /* PORTDbits.DS4 is connected to the chip enable pin of the dot matrix */
-    HCMS29struct_s(&display2.RS, &PORTD, 0x07); /* PORTCbits.DS7 is connected to the register select pin of the dot matrix */
+    HCMS29struct_s(&display1.BL, &PORTD, 0x06); /* PORTDbits.DS6 is connected to the blank pin of the dot matrix */
+    HCMS29struct_s(&display1.RST, &PORTD, 0x02);/* PORTDbits.DS2 is connected to the reset pin of the dot matrix */
+    HCMS29struct_s(&display1.CE, &PORTD, 0x04); /* PORTDbits.DS4 is connected to the chip enable pin of the dot matrix */
+    HCMS29struct_s(&display1.RS, &PORTD, 0x07); /* PORTCbits.DS7 is connected to the register select pin of the dot matrix */
     
-    /*
-    TRISA = 0;
-    PORTA = 0;
+    config0 conf0;                              /* Configuration for control word 0 register */
+    conf0.brightness = PWM18;                   /* Set the relative brightness to 30% of what it is capable of */
+    conf0.current = 0b11;                       /* Set the peak current to 12.8 mA */
+    conf0.sleep = 0b1;                          /* Do NOT go in sleep mode */
     
-    config0 data;
-    data.brightness = PWM36;
-    data.current = 0b11;
-    data.sleep = 1;
+    config1 conf1;                              /* Configuration for control word 1 register */
+    conf1.data_out = 0b0;                       /* Keep the content of bit D7 (we do not cascade HCMS displays) */
+    conf1.prescaler = 0b1;                      /* Set the internal oscillator prescaler to 1:1 */
+    
 
-    HCMS29ctl0(display1, data);
-    */
+    HCMS29wakeup(display1);                     /* While flashing the HCMS29-xx went in sleep mode. Let's wake it up */
+
+    
+    HCMS29ctl0(display1, conf0);                /* Set control word 0 of the first display */
+    __delay_ms(100);                            /* TODO: Let's try to execute without the delay_ms() */
+    HCMS29ctl1(display1, conf1);                /* Set control word 1 of the first display */
+    __delay_ms(100);                            /* TODO: Let's try to execute without the delay_ms() */
+    
+
+    HCMS29send(display1, 'c');
+    HCMS29send(display1, 'd');
+    HCMS29send(display1, 'e');
+    HCMS29send(display1, 'f');
+    HCMS29send(display1, 'g');
+    HCMS29send(display1, 'h');
+    
+
     while(1)
     {
-
+        __delay_ms(1000);
     }
-}
-
-void interrupt isr()
-{
     
+    return;
 }
-
